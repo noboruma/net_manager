@@ -34,15 +34,15 @@ namespace net
   };
 
   template<type t, protocol p>
-  struct connection;
+  struct communication;
 
   namespace abstract
   {
-    struct connection
+    struct communication
     {
-      connection() : listening(true)
+      communication() : listening(true)
       {}
-      ~connection()
+      ~communication()
       {
         close(socket_fd);
         listening = false;
@@ -53,7 +53,7 @@ namespace net
     };
 
     template<type t, protocol p>
-    using callback =  std::function<void(int,const std::string&, net::connection<t,p>& )>;
+    using callback =  std::function<void(int,const std::string&, net::communication<t,p>& )>;
   } //!abstract
 
   typedef struct sockaddr_in inet_sockaddr_t;
@@ -61,11 +61,11 @@ namespace net
 
 
   template<protocol p>
-  struct connection<type::HOST, p> : public abstract::connection
+  struct communication<type::HOST, p> : public abstract::communication
   {
     typedef abstract::callback<type::HOST,p> callback;
 
-    connection(unsigned port, const callback& c);
+    communication(unsigned port, const callback& c);
 
     private:
     sockaddr_in server_socket;
@@ -73,12 +73,12 @@ namespace net
   };
 
   template<protocol p>
-  struct connection<type::CLIENT, p> : public abstract::connection
+  struct communication<type::CLIENT, p> : public abstract::communication
   {
 
     typedef abstract::callback<type::CLIENT,p> callback;
 
-    connection(const std::string& addr, unsigned port, const callback& c);
+    communication(const std::string& addr, unsigned port, const callback& c);
 
     void send(const std::string& s);
 
@@ -88,18 +88,18 @@ namespace net
   };
 
   template<>
-  struct connection<type::HOST, protocol::PIPE> : public abstract::connection
+  struct communication<type::HOST, protocol::PIPE> : public abstract::communication
   {
     typedef abstract::callback<type::HOST, protocol::PIPE> callback;
 
-    connection(unsigned port, const callback& c, std::string name = "");
+    communication(unsigned port, const callback& c, std::string name = "");
 
     std::string get_file_path()
     {
       return file_path;
     }
 
-    ~connection()
+    ~communication()
     {
       delete file_path;
     }
@@ -111,12 +111,12 @@ namespace net
   };
 
   template<>
-  struct connection<type::CLIENT, protocol::PIPE> : public abstract::connection
+  struct communication<type::CLIENT, protocol::PIPE> : public abstract::communication
   {
 
     typedef abstract::callback<type::CLIENT, protocol::PIPE> callback;
 
-    connection(const std::string& addr, unsigned port, const callback& c);
+    communication(const std::string& addr, unsigned port, const callback& c);
 
     void send(const std::string& s);
 
@@ -127,6 +127,6 @@ namespace net
 
 } //!net
 
-#include "connection.hxx"
+#include "communication.hxx"
   
 #endif

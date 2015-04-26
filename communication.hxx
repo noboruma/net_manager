@@ -4,8 +4,8 @@
 namespace net 
 {
   template<protocol p>
-  connection<type::HOST, p>::connection(unsigned port, const callback& c)
-  : abstract::connection()
+  communication<type::HOST, p>::communication(unsigned port, const callback& c)
+  : abstract::communication()
   {
     if(p == protocol::UDP)
       socket_fd = socket(AF_INET,
@@ -31,7 +31,7 @@ namespace net
 
     if(p == protocol::TCP)
     {
-      listen(socket_fd, 30); // 30 connection in parallel
+      listen(socket_fd, 30); // 30 communication in parallel
 
       std::thread listening_thread ([&] 
       {
@@ -86,8 +86,8 @@ namespace net
   }
 
   //template<>
-  connection<type::HOST, protocol::PIPE>::connection(unsigned port, const callback& c, std::string s)
-  : abstract::connection()
+  communication<type::HOST, protocol::PIPE>::communication(unsigned port, const callback& c, std::string s)
+  : abstract::communication()
   {
     socket_fd = socket(AF_UNIX,
                        SOCK_STREAM,
@@ -112,7 +112,7 @@ namespace net
             sizeof(server_socket)))
       throw std::logic_error("Socket bind failed");
 
-    listen(socket_fd, 30); // 30 connection in parallel
+    listen(socket_fd, 30); // 30 communication in parallel
 
     std::thread listening_thread ([&] 
                                   {
@@ -136,8 +136,8 @@ namespace net
   }
 
   template<protocol p>
-  connection<type::CLIENT,p>::connection(const std::string& addr, unsigned port, const callback& c)
-  : abstract::connection()
+  communication<type::CLIENT,p>::communication(const std::string& addr, unsigned port, const callback& c)
+  : abstract::communication()
   {
     if(p == protocol::UDP)
       socket_fd = socket(AF_INET,
@@ -168,8 +168,8 @@ namespace net
   }
   
   //template<>
-  connection<type::CLIENT, protocol::PIPE>::connection(const std::string& addr, unsigned port, const callback& c)
-  : abstract::connection()
+  communication<type::CLIENT, protocol::PIPE>::communication(const std::string& addr, unsigned port, const callback& c)
+  : abstract::communication()
   {
     socket_fd = socket(AF_UNIX,
                        SOCK_STREAM,
@@ -188,7 +188,7 @@ namespace net
   }
 
   template<protocol p>
-  void connection<type::CLIENT,p>::send(const std::string& s)
+  void communication<type::CLIENT,p>::send(const std::string& s)
   {
     char buffer[256];
     unsigned length=sizeof(struct sockaddr_in);

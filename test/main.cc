@@ -1,25 +1,25 @@
-#include "../connection.hh"
+#include "../communication.hh"
 
 #include <chrono>
 #include <thread>
 
-typedef net::connection<net::type::HOST, net::protocol::TCP> udp_host_connection;
-typedef net::connection<net::type::CLIENT, net::protocol::TCP> udp_client_connection;
+typedef net::communication<net::type::HOST, net::protocol::TCP> udp_host_communication;
+typedef net::communication<net::type::CLIENT, net::protocol::TCP> udp_client_communication;
 
-void serv_callback(int, const std::string& s, udp_host_connection &c)
+void serv_callback(int, const std::string& s, udp_host_communication &c)
 {
   std::cout<<s<<std::endl;
 }
 
-void clie_callback(int, const std::string& s, udp_client_connection &c)
+void clie_callback(int, const std::string& s, udp_client_communication &c)
 {
   std::cout<<s<<std::endl;
 }
 
 int main(int argc, const char **argv)
 {
-  udp_host_connection ch(1026, serv_callback);
-  udp_client_connection cc("localhost", 1026, clie_callback);
+  udp_host_communication ch(1026, serv_callback);
+  udp_client_communication cc("localhost", 1026, clie_callback);
 
   cc.send("12coucou");
 
