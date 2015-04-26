@@ -4,7 +4,7 @@
 namespace net 
 {
   template<protocol p>
-  communication<type::HOST, p>::communication(unsigned port, const callback& c)
+  communication<role::HOST, p>::communication(unsigned port, const callback& c)
   : abstract::communication()
   {
     if(p == protocol::UDP)
@@ -25,7 +25,7 @@ namespace net
     server_socket.sin_port = htons(port);
 
     if(bind(socket_fd,
-            (struct sockaddr*)&server_socket,
+            (sockaddr*)&server_socket,
             sizeof(server_socket)))
       throw std::logic_error("Socket bind failed");
 
@@ -39,7 +39,7 @@ namespace net
         while(listening)
         {
           int newfd = accept(socket_fd,
-                           (sockaddr_t*) &server_socket,
+                           (sockaddr*) &server_socket,
                            &addr_len);
 
           std::thread discuss_thread ([&] 
@@ -62,18 +62,18 @@ namespace net
 
                                    while(listening)
                                    {
-                                   inet_sockaddr_t from;
-                                   socklen_t len = sizeof(inet_sockaddr_t);
+                                   sockaddr_in from;
+                                   socklen_t len = sizeof(sockaddr_in);
 
                                    if (recvfrom(socket_fd,
                                                 buf,
                                                 1024,
                                                 0,
-                                                (sockaddr_t*) &from,
+                                                (sockaddr*) &from,
                                                 &len) == -1)
                                    continue; // or break?
                                    // ACK
-                                   if (sendto(socket_fd, buf, 1, 0, (struct sockaddr*) &from, len) == -1)
+                                   if (sendto(socket_fd, buf, 1, 0, (sockaddr*) &from, len) == -1)
                                    continue;
 
                                    //handle data
@@ -85,58 +85,8 @@ namespace net
     }
   }
 
-  //template<>
-  communication<type::HOST, protocol::PIPE>::communication(unsigned port, const callback& c, std::string s)
-  : abstract::communication()
-  {
-    socket_fd = socket(AF_UNIX,
-                       SOCK_STREAM,
-                       0);
-
-    if(socket_fd < 0) throw std::logic_error("Socket creation failed");
-
-    bzero((char*) &server_socket, sizeof(server_socket));
-
-    server_socket.sun_family = AF_UNIX;
-    if(s.empty())
-      s = "servXXXXXX";
-    else
-      s += "XXXXXX";
-    file_path = new char[s.size()];
-    mkstemp(file_path);
-
-    strcpy(server_socket.sun_path, file_path);
-
-    if(bind(socket_fd,
-            (struct sockaddr*)&server_socket,
-            sizeof(server_socket)))
-      throw std::logic_error("Socket bind failed");
-
-    listen(socket_fd, 30); // 30 communication in parallel
-
-    std::thread listening_thread ([&] 
-                                  {
-                                  unsigned addr_len;
-                                  while(listening)
-                                  {
-                                  int newfd = accept(socket_fd,
-                                                     (sockaddr_t*) &server_socket,
-                                                     &addr_len);
-
-                                  std::thread discuss_thread ([&] 
-                                                              {
-                                                              char buf[1024];
-                                                              while(read(newfd, buf, 1024))
-                                                              c(newfd, buf, *this);
-                                                              });
-                                  discuss_thread.detach();
-                                  }
-                                  });
-    listening_thread.detach();
-  }
-
   template<protocol p>
-  communication<type::CLIENT,p>::communication(const std::string& addr, unsigned port, const callback& c)
+  communication<role::CLIENT,p>::communication(const std::string& addr, unsigned port, const callback& c)
   : abstract::communication()
   {
     if(p == protocol::UDP)
@@ -162,13 +112,63 @@ namespace net
 
     if(p == protocol::TCP||p == protocol::PIPE)
     {
-      if (connect(socket_fd,(struct sockaddr *) &server,sizeof(server)) < 0) 
+      if (connect(socket_fd,(sockaddr *) &server,sizeof(server)) < 0) 
         throw std::logic_error("Connect failed");
     }
   }
+
+  //template<>
+  communication<role::HOST, protocol::PIPE>::communication(unsigned port, const callback& c, std::string s)
+  : abstract::communication()
+  {
+    socket_fd = socket(AF_UNIX,
+                       SOCK_STREAM,
+                       0);
+
+    if(socket_fd < 0) throw std::logic_error("Socket creation failed");
+
+    bzero((char*) &server_socket, sizeof(server_socket));
+
+    server_socket.sun_family = AF_UNIX;
+    if(s.empty())
+      s = "servXXXXXX";
+    else
+      s += "XXXXXX";
+    file_path = new char[s.size()];
+    mkstemp(file_path);
+
+    strcpy(server_socket.sun_path, file_path);
+
+    if(bind(socket_fd,
+            (sockaddr*)&server_socket,
+            sizeof(server_socket)))
+      throw std::logic_error("Socket bind failed");
+
+    listen(socket_fd, 30); // 30 communication in parallel
+
+    std::thread listening_thread ([&] 
+                                  {
+                                  unsigned addr_len;
+                                  while(listening)
+                                  {
+                                  int newfd = accept(socket_fd,
+                                                     (sockaddr*) &server_socket,
+                                                     &addr_len);
+
+                                  std::thread discuss_thread ([&] 
+                                                              {
+                                                              char buf[1024];
+                                                              while(read(newfd, buf, 1024))
+                                                              c(newfd, buf, *this);
+                                                              });
+                                  discuss_thread.detach();
+                                  }
+                                  });
+    listening_thread.detach();
+  }
   
   //template<>
-  communication<type::CLIENT, protocol::PIPE>::communication(const std::string& addr, unsigned port, const callback& c)
+  communication<role::CLIENT, protocol::PIPE>::communication(const std::string& addr, unsigned port, const callback& c)
   : abstract::communication()
   {
     socket_fd = socket(AF_UNIX,
@@ -183,32 +183,42 @@ namespace net
     server.sun_family = AF_UNIX;
     strcpy(server.sun_path, addr.c_str());
 
-    if (connect(socket_fd,(struct sockaddr *) &server,sizeof(server)) < 0) 
+    if (connect(socket_fd,(sockaddr *) &server,sizeof(server)) < 0) 
       throw std::logic_error("Connect failed");
   }
 
   template<protocol p>
-  void communication<type::CLIENT,p>::send(const std::string& s)
+  void communication<role::CLIENT,p>::send(const std::string& s)
   {
     char buffer[256];
-    unsigned length=sizeof(struct sockaddr_in);
+    unsigned length=sizeof(sockaddr_in);
     if(p == protocol::UDP)
     {
       sendto(socket_fd,
              s.c_str(),
              s.length(),
              0,
-             (const struct sockaddr*)&server,
-             sizeof(struct sockaddr));
+             (const sockaddr*)&server,
+             sizeof(sockaddr));
 
-      inet_sockaddr_t from;
-      recvfrom(socket_fd,buffer,256,0,(struct sockaddr *)&from, &length);
+      sockaddr_in from;
+      recvfrom(socket_fd,buffer,256,0,(sockaddr *)&from, &length);
     }
     else if(p == protocol::TCP)
     {
       if (write(socket_fd,s.c_str(),s.size()) < 0)
         throw std::logic_error("Write to socket failed"); 
     }
+  }
+
+  //==========================================================================
+  //template<>
+  void communication<role::CLIENT,protocol::PIPE>::send(const std::string& s)
+  {
+    char buffer[256];
+    unsigned length=sizeof(sockaddr_in);
+    if (write(socket_fd,s.c_str(),s.size()) < 0)
+      throw std::logic_error("Write to socket failed"); 
   }
 
 

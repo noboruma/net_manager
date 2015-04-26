@@ -20,7 +20,7 @@
 #include <stdexcept>
 namespace net 
 {
-  enum class type
+  enum class role
   {
     HOST,
     CLIENT
@@ -33,7 +33,11 @@ namespace net
     PIPE //UNIX domain
   };
 
-  template<type t, protocol p>
+  typedef struct sockaddr_in sockaddr_in; // Internet
+  typedef struct sockaddr sockaddr;
+  typedef struct sockaddr_un sockaddr_un; // Unix
+
+  template<role t, protocol p>
   struct communication;
 
   namespace abstract
@@ -52,45 +56,42 @@ namespace net
         std::atomic_bool listening;
     };
 
-    template<type t, protocol p>
-    using callback =  std::function<void(int,const std::string&, net::communication<t,p>& )>;
+    template<role t, protocol p>
+    using callback = std::function<void(int,const std::string&, net::communication<t,p>& )>;
   } //!abstract
-
-  typedef struct sockaddr_in inet_sockaddr_t;
-  typedef struct sockaddr sockaddr_t;
 
 
   template<protocol p>
-  struct communication<type::HOST, p> : public abstract::communication
+  struct communication<role::HOST, p> : public abstract::communication
   {
-    typedef abstract::callback<type::HOST,p> callback;
+    typedef abstract::callback<role::HOST,p> callback;
 
     communication(unsigned port, const callback& c);
 
     private:
     sockaddr_in server_socket;
-    std::vector<inet_sockaddr_t> client_socket;
+    std::vector<sockaddr_in> client_socket;
   };
 
   template<protocol p>
-  struct communication<type::CLIENT, p> : public abstract::communication
+  struct communication<role::CLIENT, p> : public abstract::communication
   {
 
-    typedef abstract::callback<type::CLIENT,p> callback;
+    typedef abstract::callback<role::CLIENT,p> callback;
 
     communication(const std::string& addr, unsigned port, const callback& c);
 
     void send(const std::string& s);
 
     private:
-    inet_sockaddr_t server;
+    sockaddr_in server;
     struct hostent *hp;
   };
 
   template<>
-  struct communication<type::HOST, protocol::PIPE> : public abstract::communication
+  struct communication<role::HOST, protocol::PIPE> : public abstract::communication
   {
-    typedef abstract::callback<type::HOST, protocol::PIPE> callback;
+    typedef abstract::callback<role::HOST, protocol::PIPE> callback;
 
     communication(unsigned port, const callback& c, std::string name = "");
 
@@ -105,23 +106,23 @@ namespace net
     }
 
     private:
-    struct sockaddr_un server_socket;
+    sockaddr_un server_socket;
     std::vector<sockaddr_un> client_socket;
     char * file_path;
   };
 
   template<>
-  struct communication<type::CLIENT, protocol::PIPE> : public abstract::communication
+  struct communication<role::CLIENT, protocol::PIPE> : public abstract::communication
   {
 
-    typedef abstract::callback<type::CLIENT, protocol::PIPE> callback;
+    typedef abstract::callback<role::CLIENT, protocol::PIPE> callback;
 
     communication(const std::string& addr, unsigned port, const callback& c);
 
     void send(const std::string& s);
 
     private:
-    struct sockaddr_un server;
+    sockaddr_un server;
     struct hostent *hp;
   };
 
