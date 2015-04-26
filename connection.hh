@@ -11,7 +11,17 @@
 #include <strings.h>
 #include <functional>
 #include <thread>
+#include <atomic>
 
+#include <iostream>
+#include <stdexcept>
+#include <stdexcept>
+
+void error(const char *msg)
+{
+    perror(msg);
+    exit(0);
+}
 namespace net 
 {
   enum class type
@@ -32,34 +42,44 @@ namespace net
 
   typedef struct sockaddr_in inet_sockaddr_t;
   typedef struct sockaddr sockaddr_t;
-  typedef std::function<void(int,const std::string&)> callback;
+
+  template<type t, protocol p, unsigned c>
+  using callback_ =  std::function<void(int,const std::string&, connection<t,p,c>& )>;
 
   template<protocol p,unsigned connect_num>
-  class connection<type::HOST, p, connect_num>
+  struct connection<type::HOST, p, connect_num>
   {
+    typedef callback_<type::HOST,p,connect_num> callback;
 
     connection(unsigned port, const callback& c)
     : listening(true)
     {
-      if(p == protocol::TCP)
-      {
+      if(p == protocol::UDP)
+        socket_fd = socket(AF_INET,
+                           SOCK_DGRAM,
+                           IPPROTO_UDP);
+      else
         socket_fd = socket(AF_INET,
                            SOCK_STREAM,
                            0);
 
-        bzero((char*) &server_socket, sizeof(server_socket));
-        server_socket.sin_family = AF_INET;
-        server_socket.sin_addr.s_addr = INADDR_ANY;
-        server_socket.sin_port = htons(port);
+      if(socket_fd < 0) throw std::logic_error("Socket creation failed");
 
+      bzero((char*) &server_socket, sizeof(server_socket));
+      server_socket.sin_family = AF_INET;
+      server_socket.sin_addr.s_addr = htonl(INADDR_ANY);
+      server_socket.sin_port = htons(port);
 
-        bind(socket_fd,
-             (sockaddr_t*)server_socket,
-             sizeof(sockaddr_t));
+      if(bind(socket_fd,
+              (struct sockaddr*)&server_socket,
+              sizeof(server_socket)))
+        throw std::logic_error("Socket bind failed");
 
+      if(p == protocol::TCP)
+      {
         listen(socket_fd, 5);
 
-        int cli_num;
+        unsigned cli_num;
 
         int newfd = accept(socket_fd,
                            (sockaddr_t*) &server_socket,
@@ -68,37 +88,40 @@ namespace net
         std::thread([&] 
                     {
                       char buf[1024];
-                      while(read(newfd, 1024, buf))
+                      while(read(newfd, buf, 1024))
                       {
-                        c(newfd, buf);
+                        c(newfd, buf, *this);
                       }
                     });
       }
       else if(p == protocol::UDP)
       {
-        socket_fd = socket(AF_INET,
-                           SOCK_DGRAM,
-                           0);
-        bzero((char*) &server_socket, sizeof(server_socket));
-        server_socket.sin_family = AF_INET;
-        server_socket.sin_addr.s_addr = INADDR_ANY;
-        server_socket.sin_port = htons(port);
+        std::thread listening_thread([&] 
+                                     {
+           char buf[1024] = {0};
 
-        bind(socket_fd,
-             (sockaddr_t*)server_socket,
-             sizeof(inet_sockaddr_t));
+           while(listening)
+           {
+             inet_sockaddr_t from;
+             socklen_t len = sizeof(inet_sockaddr_t);
 
-        std::thread([&] 
-                    {
-                    char buf[1024];
-                    inet_sockaddr_t from;
-                    int n = recvfrom(socket_fd,
-                        buf,
-                        1024,
-                        0,
-                        (sockaddr_t*) &from,
-                        sizeof(inet_sockaddr_t));
-                    });
+             if (recvfrom(socket_fd,
+                              buf,
+                              1024,
+                              0,
+                              (sockaddr_t*) &from,
+                              &len) == -1)
+               continue; // or break?
+             // ACK
+             if (sendto(socket_fd, buf, 1, 0, (struct sockaddr*) &from, len) == -1)
+              continue;
+
+              //handle data
+              std::string tmp = buf+2;
+              c(buf[2], tmp, *this);
+           }
+                                     });
+        listening_thread.detach();
       }
 
     }
@@ -124,21 +147,28 @@ namespace net
     }
 
 
-    ~connection();
+    ~connection()
+    {
+      close(socket_fd);
+      listening = false;
+    }
   
     private:
-    inet_sockaddr_t server_socket;
+    struct sockaddr_in server_socket;
     inet_sockaddr_t client_socket[connect_num];
 
     int socket_fd;
         //port;
 
-    bool listening;
+    std::atomic_bool listening;
   };
 
   template<protocol p, unsigned connect_num>
-  class connection<type::CLIENT, p, connect_num>
+  struct connection<type::CLIENT, p, connect_num>
   {
+
+    typedef callback_<type::CLIENT,p,connect_num> callback;
+
     connection(const std::string& addr, unsigned port, const callback& c)
     {
       if(p == protocol::UDP)
@@ -162,7 +192,8 @@ namespace net
         sendto(socket_fd, s.c_str(), s.length(), 0, (const struct sockaddr*)&server, sizeof(struct sockaddr));
     }
 
-    ~connection();
+    ~connection()
+    {}
   
     private:
     inet_sockaddr_t server;
