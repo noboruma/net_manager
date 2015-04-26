@@ -102,6 +102,7 @@ namespace net
 
     ~communication()
     {
+      unlink(file_path);
       delete file_path;
     }
 

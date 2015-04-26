@@ -130,12 +130,15 @@ namespace net
     bzero((char*) &server_socket, sizeof(server_socket));
 
     server_socket.sun_family = AF_UNIX;
+
     if(s.empty())
-      s = "servXXXXXX";
+      s = "/tmp/server.XXXXXX";
     else
-      s += "XXXXXX";
-    file_path = new char[s.size()];
-    mkstemp(file_path);
+      s += ".XXXXXX";
+    file_path = new char[s.size()+1];
+    for (int i = 0; i < s.size()+1; ++i)
+      file_path[i] = s[i];
+    tmpnam(file_path);
 
     strcpy(server_socket.sun_path, file_path);
 
