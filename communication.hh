@@ -44,7 +44,9 @@ namespace net
   {
     struct communication
     {
-      communication() : listening(true)
+      communication() 
+      : socket_fd(0)
+      , listening(true)
       {}
       ~communication()
       {
@@ -69,8 +71,8 @@ namespace net
     communication(unsigned port, const callback& c);
 
     private:
-    sockaddr_in server_socket;
-    std::vector<sockaddr_in> client_socket;
+      sockaddr_in server_socket;
+      std::vector<sockaddr_in> client_socket;
   };
 
   template<protocol p>
@@ -95,16 +97,12 @@ namespace net
 
     communication(unsigned port, const callback& c, std::string name = "");
 
-    std::string get_file_path()
+    inline std::string get_file_path()
     {
       return file_path;
     }
 
-    ~communication()
-    {
-      unlink(file_path);
-      delete file_path;
-    }
+    ~communication();
 
     private:
     sockaddr_un server_socket;
@@ -115,7 +113,6 @@ namespace net
   template<>
   struct communication<role::CLIENT, protocol::PIPE> : public abstract::communication
   {
-
     typedef abstract::callback<role::CLIENT, protocol::PIPE> callback;
 
     communication(const std::string& addr, unsigned port, const callback& c);

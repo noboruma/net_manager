@@ -1,8 +1,6 @@
-
-#define COMPILE_TIME_IF()
-
 namespace net 
 {
+  //==========================================================================
   template<protocol p>
   communication<role::HOST, p>::communication(unsigned port, const callback& c)
   : abstract::communication()
@@ -35,11 +33,12 @@ namespace net
 
       std::thread listening_thread ([&] 
       {
-        unsigned addr_len;
+        unsigned addr_len = sizeof(sockaddr_in);
+        sockaddr_in client;
         while(listening)
         {
           int newfd = accept(socket_fd,
-                           (sockaddr*) &server_socket,
+                           (sockaddr*) &client,
                            &addr_len);
 
           std::thread discuss_thread ([&] 
@@ -85,6 +84,69 @@ namespace net
     }
   }
 
+  //==========================================================================
+  communication<role::HOST, protocol::PIPE>::communication(unsigned port, const callback& c, std::string s)
+  : abstract::communication()
+  {
+    socket_fd = socket(AF_UNIX,
+                       SOCK_STREAM,
+                       0);
+
+    if(socket_fd < 0) throw std::logic_error("Socket creation failed");
+
+    bzero((char*) &server_socket, sizeof(server_socket));
+
+    server_socket.sun_family = AF_UNIX;
+
+    if(s.empty())
+      s = "/tmp/server.XXXXXX";
+    else
+      s += ".XXXXXX";
+    file_path = new char[s.size()+1];
+    for (int i = 0; i < s.size()+1; ++i)
+      file_path[i] = s[i];
+
+    close(mkstemp(file_path));
+    unlink(file_path);
+
+    strcpy(server_socket.sun_path, file_path);
+
+    if(bind(socket_fd,
+            (sockaddr*)&server_socket,
+            sizeof(server_socket)))
+      throw std::logic_error("Socket bind failed");
+
+    listen(socket_fd, 30); // 30 communication in parallel
+
+    std::thread listening_thread ([&]() 
+                                  {
+                                  unsigned addr_len = sizeof(sockaddr_un);
+                                  sockaddr_un client;
+                                  while(listening)
+                                  {
+                                  int newfd = accept(socket_fd,
+                                                     (sockaddr*) &client,
+                                                     &addr_len);
+                                  std::thread discuss_thread ([newfd,c,this]() 
+                                                              {
+                                                              char buf[1024];
+                                                              while(read(newfd, buf, 1024))
+                                                                  c(newfd, buf, *this);
+                                                              });
+                                  discuss_thread.detach();
+                                  }
+                                  });
+    listening_thread.detach();
+  }
+
+  //==========================================================================
+  communication<role::HOST, protocol::PIPE>::~communication()
+  {
+    unlink(file_path);
+    delete file_path;
+  }
+
+  //==========================================================================
   template<protocol p>
   communication<role::CLIENT,p>::communication(const std::string& addr, unsigned port, const callback& c)
   : abstract::communication()
@@ -117,67 +179,14 @@ namespace net
     }
   }
 
-  //template<>
-  communication<role::HOST, protocol::PIPE>::communication(unsigned port, const callback& c, std::string s)
-  : abstract::communication()
-  {
-    socket_fd = socket(AF_UNIX,
-                       SOCK_STREAM,
-                       0);
-
-    if(socket_fd < 0) throw std::logic_error("Socket creation failed");
-
-    bzero((char*) &server_socket, sizeof(server_socket));
-
-    server_socket.sun_family = AF_UNIX;
-
-    if(s.empty())
-      s = "/tmp/server.XXXXXX";
-    else
-      s += ".XXXXXX";
-    file_path = new char[s.size()+1];
-    for (int i = 0; i < s.size()+1; ++i)
-      file_path[i] = s[i];
-    tmpnam(file_path);
-
-    strcpy(server_socket.sun_path, file_path);
-
-    if(bind(socket_fd,
-            (sockaddr*)&server_socket,
-            sizeof(server_socket)))
-      throw std::logic_error("Socket bind failed");
-
-    listen(socket_fd, 30); // 30 communication in parallel
-
-    std::thread listening_thread ([&] 
-                                  {
-                                  unsigned addr_len;
-                                  while(listening)
-                                  {
-                                  int newfd = accept(socket_fd,
-                                                     (sockaddr*) &server_socket,
-                                                     &addr_len);
-
-                                  std::thread discuss_thread ([&] 
-                                                              {
-                                                              char buf[1024];
-                                                              while(read(newfd, buf, 1024))
-                                                              c(newfd, buf, *this);
-                                                              });
-                                  discuss_thread.detach();
-                                  }
-                                  });
-    listening_thread.detach();
-  }
   
-  //template<>
+  //==========================================================================
   communication<role::CLIENT, protocol::PIPE>::communication(const std::string& addr, unsigned port, const callback& c)
   : abstract::communication()
   {
     socket_fd = socket(AF_UNIX,
                        SOCK_STREAM,
                        0);
-
 
     if(socket_fd < 0) throw std::logic_error("Socket creation failed");
 
@@ -223,6 +232,4 @@ namespace net
     if (write(socket_fd,s.c_str(),s.size()) < 0)
       throw std::logic_error("Write to socket failed"); 
   }
-
-
 } //!net
