@@ -62,26 +62,64 @@ namespace net
         std::atomic_bool listening;
     };
 
+    template<role p>
+    struct inet_communication;
+
+    template<>
+    struct inet_communication<role::HOST> : public communication
+    {
+      protected:
+        sockaddr_in server_socket;
+        std::vector<int> client_sockets;
+        std::unordered_map<std::string, size_t> client_groups;
+    };
+
+    template<>
+    struct inet_communication<role::CLIENT> : public communication
+    {
+      protected:
+        sockaddr_in server;
+        struct hostent *hp;
+    };
+
+
+    template<role p>
+    struct unix_communication;
+
+    template<>
+    struct unix_communication<role::HOST> : public communication
+    {
+      protected:
+        sockaddr_un server_socket;
+        std::vector<int> client_sockets;
+        std::unordered_map<std::string, size_t> client_groups;
+        char * file_path;
+    };
+
+    template<>
+    struct unix_communication<role::CLIENT> : public communication
+    {
+      protected:
+        sockaddr_un server;
+        struct hostent *hp;
+    };
+
     template<role t, protocol p>
-    using callback = std::function<void(int,const std::string&, net::communication<t,p>& )>;
+    using callback = std::function<void(int,const std::string&, net::communication<t,p>&)>;
   } //!abstract
 
 
   template<protocol p>
-  struct communication<role::HOST, p> : public abstract::communication
+  struct communication<role::HOST, p> : public abstract::inet_communication<role::HOST>
   {
     typedef abstract::callback<role::HOST,p> callback;
 
     communication(unsigned port, const callback& c, bool ack=false);
 
-    private:
-      sockaddr_in server_socket;
-      std::vector<int> client_sockets;
-      std::unordered_map<std::string, size_t> client_groups;
   };
 
   template<protocol p>
-  struct communication<role::CLIENT, p> : public abstract::communication
+  struct communication<role::CLIENT, p> : public abstract::inet_communication<role::CLIENT>
   {
 
     typedef abstract::callback<role::CLIENT,p> callback;
@@ -90,13 +128,10 @@ namespace net
 
     void send(const std::string& s);
 
-    private:
-    sockaddr_in server;
-    struct hostent *hp;
   };
 
   template<>
-  struct communication<role::HOST, protocol::PIPE> : public abstract::communication
+  struct communication<role::HOST, protocol::PIPE> : public abstract::unix_communication<role::HOST>
   {
     typedef abstract::callback<role::HOST, protocol::PIPE> callback;
 
@@ -109,15 +144,10 @@ namespace net
 
     ~communication();
 
-    private:
-    sockaddr_un server_socket;
-    std::vector<int> client_sockets;
-    std::unordered_map<std::string, size_t> client_groups;
-    char * file_path;
   };
 
   template<>
-  struct communication<role::CLIENT, protocol::PIPE> : public abstract::communication
+  struct communication<role::CLIENT, protocol::PIPE> : public abstract::unix_communication<role::CLIENT>
   {
     typedef abstract::callback<role::CLIENT, protocol::PIPE> callback;
 
@@ -125,9 +155,6 @@ namespace net
 
     void send(const std::string& s);
 
-    private:
-    sockaddr_un server;
-    struct hostent *hp;
   };
 
 } //!net

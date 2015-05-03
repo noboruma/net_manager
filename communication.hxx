@@ -5,7 +5,7 @@ namespace net
   communication<role::HOST, p>::communication(unsigned port,
                                               const callback& c,
                                               bool ack)
-  : abstract::communication()
+  : abstract::inet_communication<role::HOST>()
   {
     if(p == protocol::UDP)
       socket_fd = socket(AF_INET,
@@ -85,7 +85,7 @@ namespace net
 
   //==========================================================================
   communication<role::HOST, protocol::PIPE>::communication(unsigned port, const callback& c, std::string s)
-  : abstract::communication()
+  : abstract::unix_communication<role::HOST>()
   {
     socket_fd = socket(AF_UNIX,
                        SOCK_STREAM,
@@ -151,7 +151,7 @@ namespace net
   //==========================================================================
   template<protocol p>
   communication<role::CLIENT,p>::communication(const std::string& addr, unsigned port, const callback& c)
-  : abstract::communication()
+  : abstract::inet_communication<role::CLIENT>()
   {
     if(p == protocol::UDP)
       socket_fd = socket(AF_INET,
@@ -178,19 +178,18 @@ namespace net
     {
       if (connect(socket_fd,(sockaddr *) &server,sizeof(server)) < 0) 
         throw std::logic_error("Connect failed");
-      std::thread([=](){
+      std::thread listening_thread([=](){
         char buf[max_message_length];
-        while(listening)
-            while(read(socket_fd, buf, max_message_length))
-              c(socket_fd, buf, *this);
-      });
+        while(read(socket_fd, buf, max_message_length))
+          c(socket_fd, buf, *this);
+      }); listening_thread.detach();
     }
   }
 
   
   //==========================================================================
   communication<role::CLIENT, protocol::PIPE>::communication(const std::string& addr, unsigned port, const callback& c)
-  : abstract::communication()
+  : abstract::unix_communication<role::CLIENT>()
   {
     socket_fd = socket(AF_UNIX,
                        SOCK_STREAM,
@@ -206,12 +205,11 @@ namespace net
     if (connect(socket_fd,(sockaddr *) &server,sizeof(server)) < 0) 
       throw std::logic_error("Connect failed");
 
-    std::thread([=](){
+    std::thread listening_thread([=](){
       char buf[max_message_length];
-      while(listening)
-          while(read(socket_fd, buf, max_message_length))
-            c(socket_fd, buf, *this);
-    });
+      while(read(socket_fd, buf, max_message_length))
+        c(socket_fd, buf, *this);
+    }); listening_thread.detach();
   }
 
   template<protocol p>
@@ -229,7 +227,7 @@ namespace net
              sizeof(sockaddr));
 
       sockaddr_in from;
-      recvfrom(socket_fd,buffer,256,0,(sockaddr *)&from, &length);
+      //recvfrom(socket_fd,buffer,256,0,(sockaddr *)&from, &length);
     }
     else if(p == protocol::TCP)
     {
