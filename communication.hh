@@ -113,48 +113,39 @@ namespace net
   struct communication<role::HOST, p> : public abstract::inet_communication<role::HOST>
   {
     typedef abstract::callback<role::HOST,p> callback;
-
     communication(unsigned port, const callback& c, bool ack=false);
-
-  };
-
-  template<protocol p>
-  struct communication<role::CLIENT, p> : public abstract::inet_communication<role::CLIENT>
-  {
-
-    typedef abstract::callback<role::CLIENT,p> callback;
-
-    communication(const std::string& addr, unsigned port, const callback& c);
-
-    void send(const std::string& s);
-
   };
 
   template<>
   struct communication<role::HOST, protocol::PIPE> : public abstract::unix_communication<role::HOST>
   {
     typedef abstract::callback<role::HOST, protocol::PIPE> callback;
-
     communication(unsigned port, const callback& c, std::string name = "");
-
     inline std::string get_file_path()
     {
       return file_path;
     }
+    ~communication()
+    {
+      unlink(file_path);
+      delete file_path;
+    }
+  };
 
-    ~communication();
-
+  template<protocol p>
+  struct communication<role::CLIENT, p> : public abstract::inet_communication<role::CLIENT>
+  {
+    typedef abstract::callback<role::CLIENT,p> callback;
+    communication(const std::string& addr, unsigned port, const callback& c);
+    void send(const std::string& s);
   };
 
   template<>
   struct communication<role::CLIENT, protocol::PIPE> : public abstract::unix_communication<role::CLIENT>
   {
     typedef abstract::callback<role::CLIENT, protocol::PIPE> callback;
-
     communication(const std::string& addr, unsigned port, const callback& c);
-
     void send(const std::string& s);
-
   };
 
 } //!net
