@@ -49,7 +49,7 @@ int main(int argc, const char **argv)
 
     cc.send("12coucou");
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   }
   // UDP
   {
@@ -58,7 +58,7 @@ int main(int argc, const char **argv)
 
     cc.send("12coucou");
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   }
   // PIPE
   {
@@ -67,7 +67,7 @@ int main(int argc, const char **argv)
 
     cc.send("12coucou");
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   }
   return 0;
 }

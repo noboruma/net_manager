@@ -18,6 +18,8 @@
 #include <iostream>
 #include <stdexcept>
 #include <stdexcept>
+#include <unordered_map>
+
 namespace net 
 {
   enum class role
@@ -36,6 +38,8 @@ namespace net
   typedef struct sockaddr_in sockaddr_in; // Internet
   typedef struct sockaddr sockaddr;
   typedef struct sockaddr_un sockaddr_un; // Unix
+
+  const size_t max_message_length = 1024;
 
   template<role t, protocol p>
   struct communication;
@@ -68,11 +72,12 @@ namespace net
   {
     typedef abstract::callback<role::HOST,p> callback;
 
-    communication(unsigned port, const callback& c);
+    communication(unsigned port, const callback& c, bool ack=false);
 
     private:
       sockaddr_in server_socket;
-      std::vector<sockaddr_in> client_socket;
+      std::vector<int> client_sockets;
+      std::unordered_map<std::string, size_t> client_groups;
   };
 
   template<protocol p>
@@ -106,7 +111,8 @@ namespace net
 
     private:
     sockaddr_un server_socket;
-    std::vector<sockaddr_un> client_socket;
+    std::vector<int> client_sockets;
+    std::unordered_map<std::string, size_t> client_groups;
     char * file_path;
   };
 

@@ -2,7 +2,9 @@ namespace net
 {
   //==========================================================================
   template<protocol p>
-  communication<role::HOST, p>::communication(unsigned port, const callback& c)
+  communication<role::HOST, p>::communication(unsigned port,
+                                              const callback& c,
+                                              bool ack)
   : abstract::communication()
   {
     if(p == protocol::UDP)
@@ -31,8 +33,7 @@ namespace net
     {
       listen(socket_fd, 30); // 30 communication in parallel
 
-      std::thread listening_thread ([&] 
-      {
+      std::thread listening_thread ([=] {
         unsigned addr_len = sizeof(sockaddr_in);
         sockaddr_in client;
         while(listening)
@@ -41,46 +42,44 @@ namespace net
                            (sockaddr*) &client,
                            &addr_len);
 
-          std::thread discuss_thread ([&] 
-                  {
-                  char buf[1024];
-                  while(read(newfd, buf, 1024))
-                    c(newfd, buf, *this);
-                  });
-          discuss_thread.detach();
-        }
-      });
+          client_sockets.push_back(newfd);
 
-      listening_thread.detach();
+          std::thread discuss_thread ([=] {
+            char buf[max_message_length];
+            while(read(newfd, buf, max_message_length))
+              c(newfd, buf, *this); 
+          }); discuss_thread.detach();
+        }
+      }); listening_thread.detach();
     }
     else if(p == protocol::UDP)
     {
-      std::thread listening_thread([&] 
-                                   {
-                                   char buf[1024] = {0};
+      std::thread listening_thread([=] {
+      char buf[max_message_length] = {0};
 
-                                   while(listening)
-                                   {
-                                   sockaddr_in from;
-                                   socklen_t len = sizeof(sockaddr_in);
+      while(listening)
+      {
+        sockaddr_in from;
+        socklen_t len = sizeof(sockaddr_in);
 
-                                   if (recvfrom(socket_fd,
-                                                buf,
-                                                1024,
-                                                0,
-                                                (sockaddr*) &from,
-                                                &len) == -1)
-                                   continue; // or break?
-                                   // ACK
-                                   if (sendto(socket_fd, buf, 1, 0, (sockaddr*) &from, len) == -1)
-                                   continue;
+      if (recvfrom(socket_fd,
+                   buf,
+                   max_message_length,
+                   0,
+                   (sockaddr*) &from,
+                   &len) == -1)
+        continue; // or break?
 
-                                   //handle data
-                                   std::string tmp = buf+2;
-                                   c(buf[2], tmp, *this);
-                                   }
-                                   });
-      listening_thread.detach();
+      // ACK
+      if(ack)
+      if (sendto(socket_fd, buf, 1, 0, (sockaddr*) &from, len) == -1)
+        continue;
+
+      //handle data
+      std::string tmp = buf;
+      c(buf[2], tmp, *this);
+
+      }}); listening_thread.detach();
     }
   }
 
@@ -102,6 +101,7 @@ namespace net
       s = "/tmp/server.XXXXXX";
     else
       s += ".XXXXXX";
+
     file_path = new char[s.size()+1];
     for (int i = 0; i < s.size()+1; ++i)
       file_path[i] = s[i];
@@ -118,25 +118,27 @@ namespace net
 
     listen(socket_fd, 30); // 30 communication in parallel
 
-    std::thread listening_thread ([&]() 
-                                  {
-                                  unsigned addr_len = sizeof(sockaddr_un);
-                                  sockaddr_un client;
-                                  while(listening)
-                                  {
-                                  int newfd = accept(socket_fd,
-                                                     (sockaddr*) &client,
-                                                     &addr_len);
-                                  std::thread discuss_thread ([newfd,c,this]() 
-                                                              {
-                                                              char buf[1024];
-                                                              while(read(newfd, buf, 1024))
-                                                                  c(newfd, buf, *this);
-                                                              });
-                                  discuss_thread.detach();
-                                  }
-                                  });
-    listening_thread.detach();
+    std::thread listening_thread ([=]() {
+      unsigned addr_len = sizeof(sockaddr_un);
+      sockaddr_un client;
+      while(listening)
+      {
+        int newfd = accept(socket_fd,
+                           (sockaddr*) &client,
+                           &addr_len);
+
+        client_sockets.push_back(newfd);
+
+        std::thread discuss_thread ([=]() 
+                                    {
+                                      char buf[max_message_length];
+                                      while(read(newfd,
+                                                 buf,
+                                                 max_message_length))
+                                          c(newfd, buf, *this);
+                                    }); discuss_thread.detach();
+      }
+    }); listening_thread.detach();
   }
 
   //==========================================================================
@@ -172,10 +174,16 @@ namespace net
           hp->h_length);
     server.sin_port = htons(port);
 
-    if(p == protocol::TCP||p == protocol::PIPE)
+    if(p == protocol::TCP)
     {
       if (connect(socket_fd,(sockaddr *) &server,sizeof(server)) < 0) 
         throw std::logic_error("Connect failed");
+      std::thread([=](){
+        char buf[max_message_length];
+        while(listening)
+            while(read(socket_fd, buf, max_message_length))
+              c(socket_fd, buf, *this);
+      });
     }
   }
 
@@ -197,6 +205,13 @@ namespace net
 
     if (connect(socket_fd,(sockaddr *) &server,sizeof(server)) < 0) 
       throw std::logic_error("Connect failed");
+
+    std::thread([=](){
+      char buf[max_message_length];
+      while(listening)
+          while(read(socket_fd, buf, max_message_length))
+            c(socket_fd, buf, *this);
+    });
   }
 
   template<protocol p>

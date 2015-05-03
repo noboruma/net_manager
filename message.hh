@@ -19,7 +19,6 @@ namespace net
       byte count;
       std::string data;
   };
-  
 } //!net
 
 #endif
