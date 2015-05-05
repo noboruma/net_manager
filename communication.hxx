@@ -3,8 +3,7 @@ namespace net
 
   template<>
   communication<role::HOST, protocol::TCP>::communication(unsigned port,
-                                              const callback& c,
-                                              bool ack)
+                                              const callback& c)
   : abstract::inet_communication<role::HOST>()
   {
       socket_fd = socket(AF_INET,
@@ -49,8 +48,8 @@ namespace net
   //==========================================================================
   template<>
   communication<role::HOST, protocol::UDP>::communication(unsigned port,
-                                              const callback& c,
-                                              bool ack)
+                                              const callback& c)//,
+                                              //bool ack)
   : abstract::inet_communication<role::HOST>()
   {
     socket_fd = socket(AF_INET,
@@ -71,29 +70,28 @@ namespace net
       throw std::logic_error("Socket bind failed");
 
     std::thread listening_thread([=] {
-    char buf[max_message_length] = {0};
+      char buf[max_message_length] = {0};
+      while(listening)
+      {
+        sockaddr_in from;
+        socklen_t len = sizeof(sockaddr_in);
 
-    while(listening)
-    {
-      sockaddr_in from;
-      socklen_t len = sizeof(sockaddr_in);
+      if (recvfrom(socket_fd,
+                   buf,
+                   max_message_length,
+                   0,
+                   (sockaddr*) &from,
+                   &len) == -1)
+        continue; // or break?
 
-    if (recvfrom(socket_fd,
-                 buf,
-                 max_message_length,
-                 0,
-                 (sockaddr*) &from,
-                 &len) == -1)
-      continue; // or break?
+      //// ACK
+      //if(ack)
+      //if (sendto(socket_fd, buf, 1, 0, (sockaddr*) &from, len) == -1)
+      //  continue;
 
-    // ACK
-    if(ack)
-    if (sendto(socket_fd, buf, 1, 0, (sockaddr*) &from, len) == -1)
-      continue;
-
-    //handle data
-    std::string tmp = buf;
-    c(buf[2], tmp, *this);
+      //handle data
+      std::string tmp = buf;
+      c(buf[2], tmp, *this);
 
     }}); listening_thread.detach();
   }

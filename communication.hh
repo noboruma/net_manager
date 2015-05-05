@@ -113,7 +113,7 @@ namespace net
   struct communication<role::HOST, p> : public abstract::inet_communication<role::HOST>
   {
     typedef abstract::callback<role::HOST,p> callback;
-    communication(unsigned port, const callback& c, bool ack=false);
+    communication(unsigned port, const callback& c);
   };
 
   template<>
