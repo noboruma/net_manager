@@ -12,30 +12,30 @@ typedef net::communication<net::role::CLIENT, net::protocol::UDP> udp_client_com
 typedef net::communication<net::role::HOST, net::protocol::TCP> tcp_host_communication;
 typedef net::communication<net::role::CLIENT, net::protocol::TCP> tcp_client_communication;
 
-void tcp_serv_callback(int, const std::string& s, tcp_host_communication &c)
+void tcp_serv_callback(int, const net::message& s, tcp_host_communication &c)
 {
   std::cout<<s<<std::endl;
 }
 
-void tcp_clie_callback(int, const std::string& s, tcp_client_communication &c)
+void tcp_clie_callback(int, const net::message& s, tcp_client_communication &c)
 {
   std::cout<<s<<std::endl;
 }
-void udp_serv_callback(int, const std::string& s, udp_host_communication &c)
-{
-  std::cout<<s<<std::endl;
-}
-
-void udp_clie_callback(int, const std::string& s, udp_client_communication &c)
-{
-  std::cout<<s<<std::endl;
-}
-void unix_serv_callback(int, const std::string& s, unix_host_communication &c)
+void udp_serv_callback(int, const net::message& s, udp_host_communication &c)
 {
   std::cout<<s<<std::endl;
 }
 
-void unix_clie_callback(int, const std::string& s, unix_client_communication &c)
+void udp_clie_callback(int, const net::message& s, udp_client_communication &c)
+{
+  std::cout<<s<<std::endl;
+}
+void unix_serv_callback(int, const net::message& s, unix_host_communication &c)
+{
+  std::cout<<s<<std::endl;
+}
+
+void unix_clie_callback(int, const net::message& s, unix_client_communication &c)
 {
   std::cout<<s<<std::endl;
 }

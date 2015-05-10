@@ -238,23 +238,22 @@ namespace net
 
   //==========================================================================
   template<>
-  void communication<role::CLIENT,protocol::TCP>::send(const std::string& s)
+  void communication<role::CLIENT,protocol::TCP>::send(const message& s)
   {
-    char buffer[256];
     unsigned length=sizeof(sockaddr_in);
-    if (write(socket_fd,s.c_str(),s.size()) < 0)
+    if (write(socket_fd,s.c_str,s.length) < 0)
       throw std::logic_error("Write to socket failed"); 
   }
   
   //==========================================================================
   template<>
-  void communication<role::CLIENT,protocol::UDP>::send(const std::string& s)
+  void communication<role::CLIENT,protocol::UDP>::send(const message& s)
   {
     char buffer[256];
     unsigned length=sizeof(sockaddr_in);
     sendto(socket_fd,
-           s.c_str(),
-           s.length(),
+           s.c_str,
+           s.length,
            0,
            (const sockaddr*)&server,
            sizeof(sockaddr));
@@ -265,11 +264,11 @@ namespace net
 
   //==========================================================================
   //template<>
-  void communication<role::CLIENT,protocol::PIPE>::send(const std::string& s)
+  void communication<role::CLIENT,protocol::PIPE>::send(const message& s)
   {
     char buffer[256];
     unsigned length=sizeof(sockaddr_in);
-    if (write(socket_fd,s.c_str(),s.size()) < 0)
+    if (write(socket_fd,s.c_str,s.length) < 0)
       throw std::logic_error("Write to socket failed"); 
   }
 } //!net

@@ -20,6 +20,9 @@
 #include <stdexcept>
 #include <unordered_map>
 
+#include "global_network.hh"
+#include "message.hh"
+
 namespace net 
 {
   enum class role
@@ -38,8 +41,6 @@ namespace net
   typedef struct sockaddr_in sockaddr_in; // Internet
   typedef struct sockaddr sockaddr;
   typedef struct sockaddr_un sockaddr_un; // Unix
-
-  const size_t max_message_length = 1024;
 
   template<role t, protocol p>
   struct communication;
@@ -105,7 +106,7 @@ namespace net
     };
 
     template<role t, protocol p>
-    using callback = std::function<void(int,const std::string&, net::communication<t,p>&)>;
+    using callback = std::function<void(int,const message&, net::communication<t,p>&)>;
   } //!abstract
 
 
@@ -137,7 +138,7 @@ namespace net
   {
     typedef abstract::callback<role::CLIENT,p> callback;
     communication(const std::string& addr, unsigned port, const callback& c);
-    void send(const std::string& s);
+    void send(const message& s);
   };
 
   template<>
@@ -145,7 +146,7 @@ namespace net
   {
     typedef abstract::callback<role::CLIENT, protocol::PIPE> callback;
     communication(const std::string& addr, unsigned port, const callback& c);
-    void send(const std::string& s);
+    void send(const message& s);
   };
 
 } //!net
